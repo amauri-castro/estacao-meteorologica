@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Telemetria da estação meteorológica - v1",
+  "description": "Corpo de POST /v1/telemetry. Unidades fixas por versão do schema (indicadas no nome do campo). Timestamps em epoch segundos UTC. Restrições que o JSON Schema não expressa (min <= avg <= max; (device, boot_id, seq) único) são validadas no backend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "device", "boot_id", "sent_at", "records"],
+  "properties": {
+    "v": {
+      "const": 1,
+      "description": "Versão do contrato. Mudança incompatível exige v2 (e /v2/telemetry)."
+    },
+    "device": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,31}$",
+      "description": "Identificador do dispositivo. Deve coincidir com o do token de autenticação."
+    },
+    "boot_id": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Incrementado uma vez a cada boot (persistido em NVS). Junto com seq, forma a chave de idempotência."
+    },
+    "sent_at": {
+      "$ref": "#/$defs/epochSeconds",
+      "description": "Relógio do dispositivo no momento do envio. Não confiável se algum registro tiver time_synced=false."
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/record" }
+    },
+    "health": { "$ref": "#/$defs/health" },
+    "errors": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["bme280", "rain"] },
+      "description": "Sensores que falharam no período. Um sensor com falha é omitido do registro, nunca enviado como zero ou NaN."
+    }
+  },
+  "$defs": {
+    "epochSeconds": { "type": "integer", "minimum": 0 },
+
+    "tempValue": { "type": "number", "minimum": -40, "maximum": 85 },
+    "humidityValue": { "type": "number", "minimum": 0, "maximum": 100 },
+    "pressureValue": { "type": "number", "minimum": 300, "maximum": 1100 },
+
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seq", "end_at", "time_synced", "interval_s", "n"],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Contador monotônico dentro do boot_id, reiniciado em 0 a cada boot."
+        },
+        "end_at": {
+          "$ref": "#/$defs/epochSeconds",
+          "description": "Fim da janela de agregação. Se time_synced=false, o backend usa o horário de recebimento como referência."
+        },
+        "time_synced": {
+          "type": "boolean",
+          "description": "Se o relógio do dispositivo estava sincronizado via NTP ao fechar a janela."
+        },
+        "interval_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Duração nominal da janela, em segundos."
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Amostras efetivamente agregadas. n menor que o esperado indica janela parcial (ex.: queda de energia)."
+        },
+        "bme280": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["temp_c", "humidity_pct", "pressure_hpa"],
+          "properties": {
+            "temp_c": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["avg", "min", "max"],
+              "properties": {
+                "avg": { "$ref": "#/$defs/tempValue" },
+                "min": { "$ref": "#/$defs/tempValue" },
+                "max": { "$ref": "#/$defs/tempValue" }
+              }
+            },
+            "humidity_pct": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["avg", "min", "max"],
+              "properties": {
+                "avg": { "$ref": "#/$defs/humidityValue" },
+                "min": { "$ref": "#/$defs/humidityValue" },
+                "max": { "$ref": "#/$defs/humidityValue" }
+              }
+            },
+            "pressure_hpa": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["avg"],
+              "properties": {
+                "avg": { "$ref": "#/$defs/pressureValue" }
+              }
+            }
+          }
+        },
+        "rain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pulses"],
+          "properties": {
+            "pulses": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Pulsos do pluviômetro no intervalo (delta, não contador acumulado). A conversão para mm é feita no backend, com o fator de calibração do sensor."
+            }
+          }
+        }
+      }
+    },
+
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rssi_dbm": { "type": "integer", "minimum": -127, "maximum": 0 },
+        "uptime_s": { "type": "integer", "minimum": 0 },
+        "fw": { "type": "string", "maxLength": 32 }
+      },
+      "description": "Saúde do dispositivo. Dado separado da meteorologia."
+    }
+  },
+  "examples": [
+    {
+      "v": 1,
+      "device": "ws-01",
+      "boot_id": 58,
+      "sent_at": 1790258700,
+      "records": [
+        {
+          "seq": 12,
+          "end_at": 1790258700,
+          "time_synced": true,
+          "interval_s": 300,
+          "n": 30,
+          "bme280": {
+            "temp_c": { "avg": 27.4, "min": 27.1, "max": 27.8 },
+            "humidity_pct": { "avg": 61.2, "min": 60.5, "max": 62.0 },
+            "pressure_hpa": { "avg": 1009.8 }
+          },
+          "rain": { "pulses": 1 }
+        }
+      ],
+      "health": { "rssi_dbm": -67, "uptime_s": 86400, "fw": "0.3.1" },
+      "errors": []
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Resposta da ingestão de telemetria - v1",
+  "description": "Corpo da resposta 200 de POST /v1/telemetry. Corpo inválido como um todo (não segue o schema da requisição) resulta em 400; token ausente ou inválido em 401. O firmware só remove do buffer os registros aceitos ou duplicados; os rejeitados não devem ser reenviados.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "duplicates", "rejected", "server_time"],
+  "properties": {
+    "accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Registros novos persistidos."
+    },
+    "duplicates": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Registros já recebidos (mesma chave device, boot_id, seq), descartados sem erro."
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "reason"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 0 },
+          "reason": { "enum": ["malformed", "inconsistent_stats"] }
+        }
+      }
+    },
+    "server_time": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Epoch segundos UTC do servidor, para o firmware corrigir o relógio se o NTP falhar."
+    }
+  },
+  "examples": [
+    { "accepted": 1, "duplicates": 0, "rejected": [], "server_time": 1790258701 }
+  ]
+}
