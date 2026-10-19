@@ -4,6 +4,11 @@
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_BME280.h>
 
+#include <WiFi.h>
+#include <HTTPClient.h>
+
+#include <env.h>
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
@@ -16,6 +21,23 @@
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 Adafruit_BME280 bme;
+
+void setupWiFi() {
+  Serial.print("Conectando-se ao Wi-Fi: ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  // Trava o sistema aqui até conseguir conectar
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\n[SUCESSO] Wi-Fi conectado!");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP());
+}
 
 void setup()
 {
@@ -38,6 +60,8 @@ void setup()
   }
 
   Serial.println("Perifericos inicializados com sucesso.");
+
+  setupWiFi();
 }
 
 void loop()
@@ -48,7 +72,6 @@ void loop()
   float pressao = bme.readPressure() / 100.0F;
   float altitude_simples = bme.readAltitude(SEALEVELPRESSURE_HPA);
 
-  Serial.printf("Temp: %.1f C | Umid: %.1f %% | Pressao: %.1f hPa\n", temp, umid, pressao);
 
   display.clearDisplay();
 
@@ -76,6 +99,39 @@ void loop()
   display.printf("Pressao: %.0f hPa", pressao);
 
   display.display();
+
+  /*
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+
+    http.begin(serverUrl);
+    
+    http.addHeader("Content-Type", "application/json");
+
+    String jsonPayload = "{";
+    jsonPayload += "\"temperatura\":" + String(temp) + ",";
+    jsonPayload += "\"umidade\":" + String(umid) + ",";
+    jsonPayload += "\"pressao\":" + String(pressao);
+    jsonPayload += "}";
+
+    Serial.println("\nEnviando requisição POST...");
+    Serial.println("Payload: " + jsonPayload);
+
+    int httpResponseCode = http.POST(jsonPayload);
+
+    if (httpResponseCode > 0) {
+      Serial.printf("Resposta do Servidor (Código HTTP): %d\n", httpResponseCode);
+    } else {
+      Serial.printf("Erro na requisição HTTP: %s\n", http.errorToString(httpResponseCode).c_str());
+    }
+
+    http.end(); 
+  } else {
+    Serial.println("\nWi-Fi desconectado. Tentando reconectar...");
+    WiFi.reconnect();
+  }
+  */
+
 
   delay(5000);
 }

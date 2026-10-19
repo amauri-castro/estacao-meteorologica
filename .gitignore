@@ -1,0 +1,42 @@
+# ==========================================
+# FIRMWARE (ESP32 / PlatformIO)
+# ==========================================
+# Ignora arquivos de configuração de ambiente e senhas em qualquer subpasta
+**/env.h
+**/secrets.h
+
+# Compilação e arquivos temporários do PlatformIO
+**/.pio/
+**/.pioenvs/
+**/.piolibdeps/
+
+# ==========================================
+# IDEs & EDITORES
+# ==========================================
+**/.vscode/
+**/.idea/
+*.swp
+*.bak
+
+# ==========================================
+# BACKEND (Spring Boot / Java) - Futuro
+# ==========================================
+**/target/
+**/build/
+**/*.class
+**/*.jar
+**/*.war
+
+# ==========================================
+# FRONTEND (Angular / Node) - Futuro
+# ==========================================
+**/node_modules/
+**/dist/
+**/.angular/
+**/npm-debug.log*
+
+# ==========================================
+# SISTEMA OPERACIONAL
+# ==========================================
+.DS_Store
+Thumbs.db
